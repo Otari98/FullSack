@@ -1,8 +1,8 @@
 ## Interface: 11200
 ## Title: FullSack |cffc79c6e-Spit-|r
 ## Author: Otari
-## Notes: Shows total item count on tooltips
-## Version: 0.1
+## Notes: Shows total item and money count on tooltips
+## Version: 0.2
 ## SavedVariables: FULLSACK_DATA
 
 FullSack.lua

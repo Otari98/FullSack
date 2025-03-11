@@ -341,6 +341,26 @@ local function UpdateMailbox()
     end
 end
 
+local function UpdateGear()
+    if not FULLSACK_DATA[character].equipped then
+        FULLSACK_DATA[character].equipped = {}
+    end
+    tblwipe(FULLSACK_DATA[character].equipped)
+    for i = 1, 19 do
+        local link = GetInventoryItemLink("player", i)
+        local _, _, id = strfind(link or "", "item:(%d+)")
+        id = tonumber(id)
+        if id then
+            local tmpCount = FULLSACK_DATA[character].equipped[id]
+            if not tmpCount then
+                FULLSACK_DATA[character].equipped[id] = 1
+            else
+                FULLSACK_DATA[character].equipped[id] = tmpCount + 1
+            end
+        end
+    end
+end
+
 local function MoneyToStr(money)
     local gold = floor(money / (COPPER_PER_SILVER * SILVER_PER_GOLD))
     local silver = floor((money - (gold * COPPER_PER_SILVER * SILVER_PER_GOLD)) / COPPER_PER_SILVER)
@@ -479,23 +499,7 @@ local function OnEvent()
         end
 
     elseif event == "UNIT_INVENTORY_CHANGED" and arg1 == "player" then
-        if not FULLSACK_DATA[character].equipped then
-            FULLSACK_DATA[character].equipped = {}
-        end
-        tblwipe(FULLSACK_DATA[character].equipped)
-        for i = 1, 19 do
-            local link = GetInventoryItemLink("player", i)
-            local _, _, id = strfind(link or "", "item:(%d+)")
-            id = tonumber(id)
-            if id then
-                local tmpCount = FULLSACK_DATA[character].equipped[id]
-                if not tmpCount then
-                    FULLSACK_DATA[character].equipped[id] = 1
-                else
-                    FULLSACK_DATA[character].equipped[id] = tmpCount + 1
-                end
-            end
-        end
+        UpdateGear()
 
     elseif event == "BANKFRAME_OPENED" then
         bankOpened = true
@@ -511,6 +515,12 @@ local function OnEvent()
         ScheduleFunctionLaunch(UpdateMailbox)
 
     elseif event == "PLAYER_MONEY" then
+        if not FULLSACK_DATA then
+            FULLSACK_DATA = {}
+        end
+        if not FULLSACK_DATA[character] then
+            FULLSACK_DATA[character] = {}
+        end
         FULLSACK_DATA[character].money = { GetMoney() }
     end
 end
@@ -577,6 +587,7 @@ SlashCmdList["FULLSACK"] = function(msg)
     local cmd = string.gsub(msg or "", "^%s*(.-)%s*$", "%1")
     cmd = strupper(cmd)
     if cmd == "" then
+        DEFAULT_CHAT_FRAME:AddMessage(BLUE.."[FullSack] "..WHITE.."Version "..GetAddOnMetadata("FullSack", "Version"))
         DEFAULT_CHAT_FRAME:AddMessage(BLUE.."[FullSack] "..WHITE.."Available commands:")
         DEFAULT_CHAT_FRAME:AddMessage(BLUE.."[FullSack] "..WHITE.."/fullsack delete <character name> - clears data for specified character (ex. /fullsack delete "..UnitName("player")..")")
         DEFAULT_CHAT_FRAME:AddMessage(BLUE.."[FullSack] "..WHITE.."/fullsack purge - clears all data")
@@ -591,10 +602,13 @@ SlashCmdList["FULLSACK"] = function(msg)
             return
         end
         for k in pairs(FULLSACK_DATA) do
-            if strfind(strupper(k), "^"..charToDelete..";") then
-                FULLSACK_DATA[k] = nil
-                DEFAULT_CHAT_FRAME:AddMessage(BLUE.."[FullSack] "..WHITE.."Cleared data for "..charToDelete)
-                return
+            local _, _, charRealm = strfind(k, "%w+;%w+;(%w+)")
+            if charRealm == realm then
+                if strfind(strupper(k), "^"..charToDelete..";") then
+                    FULLSACK_DATA[k] = nil
+                    DEFAULT_CHAT_FRAME:AddMessage(BLUE.."[FullSack] "..WHITE.."Cleared data for "..charToDelete)
+                    return
+                end
             end
         end
         DEFAULT_CHAT_FRAME:AddMessage(BLUE.."[FullSack] "..WHITE.."Couldn't find data for "..charToDelete)
