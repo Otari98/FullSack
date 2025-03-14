@@ -6,7 +6,8 @@ FullSack:RegisterEvent("BANKFRAME_CLOSED")
 FullSack:RegisterEvent("PLAYERBANKSLOTS_CHANGED")
 FullSack:RegisterEvent("UNIT_INVENTORY_CHANGED")
 FullSack:RegisterEvent("PLAYER_LOGOUT")
-FullSack:RegisterEvent("MAIL_INBOX_UPDATE")
+FullSack:RegisterEvent("MAIL_CLOSED")
+FullSack:RegisterEvent("MAIL_SHOW")
 FullSack:RegisterEvent("PLAYER_MONEY")
 FullSack:RegisterEvent("PLAYER_ENTERING_WORLD")
 
@@ -66,30 +67,33 @@ local function ExtendTooltip(tooltip)
         local lastLine = getglobal(tooltip:GetName().."TextLeft"..numLines)
         for char in pairs(FULLSACK_DATA) do
             local _, _, charName, charClass, charRealm = strfind(char, "(.+);(.+);(.+)")
+            local color = classColors[charClass]
             if charRealm ~= realm then
                 -- continue
             else
                 for pos in pairs(FULLSACK_DATA[char]) do
                     local count = FULLSACK_DATA[char][pos][id]
+                    local posStr = pos
+                    posStr = color..pos..CLOSE
                     if count then
-                        local color = classColors[charClass]
                         if not separatorAdded then
                             separatorAdded = true
-                            lastLine:SetText(lastLine:GetText().."\n\n"..color..charName.." (" .. pos .. ")".." - "..count..CLOSE)
+                            lastLine:SetText(lastLine:GetText().."\n\n"..color..charName..WHITE.." (" .. posStr ..WHITE.. ")".." - "..count..CLOSE)
                         else
-                            lastLine:SetText(lastLine:GetText().."\n"..color..charName.." (" .. pos .. ")".." - "..count..CLOSE)
+                            lastLine:SetText(lastLine:GetText().."\n"..color..charName..WHITE.." (" .. posStr ..WHITE.. ")".." - "..count..CLOSE)
                         end
                     end
                 end
             end
         end
         if totalCount > 0 then
-            lastLine:SetText(lastLine:GetText().."\n"..GOLD.."Total - " .. totalCount..CLOSE)
+            lastLine:SetText(lastLine:GetText().."\n"..LIGHTYELLOW_FONT_COLOR_CODE.."Total - " .. totalCount..CLOSE)
         end
     end
     tooltip:Show()
 end
 
+local GetItemInfo = GetItemInfo
 local lastSearchName
 local lastSearchID
 local function GetItemIDByName(name)
@@ -511,7 +515,7 @@ local function OnEvent()
     elseif event == "PLAYERBANKSLOTS_CHANGED" then
         UpdateBagsAndBank()
 
-    elseif event == "MAIL_INBOX_UPDATE" then
+    elseif event == "MAIL_CLOSED" or event == "MAIL_SHOW" then
         ScheduleFunctionLaunch(UpdateMailbox)
 
     elseif event == "PLAYER_MONEY" then
