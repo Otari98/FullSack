@@ -191,11 +191,11 @@ function GameTooltip.SetInboxItem(self, mailID, attachmentIndex)
 end
 
 function GameTooltip.SetInventoryItem(self, unit, slot)
-    local hasItem, hasCooldown = original_SetInventoryItem(self, unit, slot)
+    local hasItem, hasCooldown, repairCost = original_SetInventoryItem(self, unit, slot)
     local _, _, id = string.find(GetInventoryItemLink(unit, slot) or "", "item:(%d+)")
     GameTooltip.itemID = id
     ExtendTooltip(GameTooltip)
-    return hasItem, hasCooldown
+    return hasItem, hasCooldown, repairCost
 end
 
 function GameTooltip.SetCraftItem(self, skill, slot)
