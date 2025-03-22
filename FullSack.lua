@@ -65,6 +65,9 @@ local function ExtendTooltip(tooltip)
             separatorAdded = true
         end
         local lastLine = getglobal(tooltip:GetName().."TextLeft"..numLines)
+        if not lastLine then
+            return
+        end
         for char in pairs(FULLSACK_DATA) do
             local _, _, charName, charClass, charRealm = strfind(char, "(.+);(.+);(.+)")
             local color = classColors[charClass]
