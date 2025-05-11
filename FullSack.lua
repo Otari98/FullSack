@@ -36,11 +36,11 @@ local CLOSE = FONT_COLOR_CODE_CLOSE
 
 local bankOpened = false
 local superwow = SUPERWOW_VERSION and tonumber(SUPERWOW_VERSION) >= 1.3
-
+local insideHook = false
 local tooltipMoney = 0
 local original_SetTooltipMoney = SetTooltipMoney
 function SetTooltipMoney(frame, money)
-    if frame ~= GameTooltip then
+    if not insideHook then
         return original_SetTooltipMoney(frame, money)
     else
         tooltipMoney = money or 0
@@ -156,87 +156,110 @@ if superwow then
 end
 
 function GameTooltip.SetLootRollItem(self, id)
+    insideHook = true
     original_SetLootRollItem(self, id)
     local _, _, itemID = string.find(GetLootRollItemLink(id) or "", "item:(%d+)")
     GameTooltip.itemID = itemID
+    insideHook = false
     ExtendTooltip(GameTooltip)
 end
 
 function GameTooltip.SetLootItem(self, slot)
+    insideHook = true
     original_SetLootItem(self, slot)
     local _, _, itemID = string.find(GetLootSlotLink(slot) or "", "item:(%d+)")
     GameTooltip.itemID = itemID
+    insideHook = false
     ExtendTooltip(GameTooltip)
 end
 
 function GameTooltip.SetMerchantItem(self, merchantIndex)
+    insideHook = true
     original_SetMerchantItem(self, merchantIndex)
     local _, _, itemID = string.find(GetMerchantItemLink(merchantIndex) or "", "item:(%d+)")
     GameTooltip.itemID = itemID
+    insideHook = false
     ExtendTooltip(GameTooltip)
 end
 
 function GameTooltip.SetQuestLogItem(self, itemType, index)
+    insideHook = true
     original_SetQuestLogItem(self, itemType, index)
     local _, _, itemID = string.find(GetQuestLogItemLink(itemType, index) or "", "item:(%d+)")
     GameTooltip.itemID = itemID
+    insideHook = false
     ExtendTooltip(GameTooltip)
 end
 
 function GameTooltip.SetQuestItem(self, itemType, index)
+    insideHook = true
     original_SetQuestItem(self, itemType, index)
     local _, _, itemID = string.find(GetQuestItemLink(itemType, index) or "", "item:(%d+)")
     GameTooltip.itemID = itemID
+    insideHook = false
     ExtendTooltip(GameTooltip)
 end
 
 function GameTooltip.SetHyperlink(self, arg1)
+    insideHook = true
     original_SetHyperlink(self, arg1)
     local _, _, id = string.find(arg1 or "", "item:(%d+)")
     GameTooltip.itemID = id
+    insideHook = false
     ExtendTooltip(GameTooltip)
 end
 
 function GameTooltip.SetBagItem(self, container, slot)
+    insideHook = true
     local hasCooldown, repairCost = original_SetBagItem(self, container, slot)
     local _, _, id = string.find(GetContainerItemLink(container, slot) or "", "item:(%d+)")
     GameTooltip.itemID = id
+    insideHook = false
     ExtendTooltip(GameTooltip)
     return hasCooldown, repairCost
 end
 
 function GameTooltip.SetInboxItem(self, mailID, attachmentIndex)
+    insideHook = true
     original_SetInboxItem(self, mailID, attachmentIndex)
     local itemName = GetInboxItem(mailID)
     if itemName then
         GameTooltip.itemID = GetItemIDByName(itemName)
     end
+    insideHook = false
     ExtendTooltip(GameTooltip)
 end
 
 function GameTooltip.SetInventoryItem(self, unit, slot)
+    insideHook = true
     local hasItem, hasCooldown, repairCost = original_SetInventoryItem(self, unit, slot)
     local _, _, id = string.find(GetInventoryItemLink(unit, slot) or "", "item:(%d+)")
     GameTooltip.itemID = id
+    insideHook = false
     ExtendTooltip(GameTooltip)
     return hasItem, hasCooldown, repairCost
 end
 
 function GameTooltip.SetCraftItem(self, skill, slot)
+    insideHook = true
     original_SetCraftItem(self, skill, slot)
     local _, _, id = string.find(GetCraftReagentItemLink(skill, slot) or "", "item:(%d+)")
     GameTooltip.itemID = id
+    insideHook = false
     ExtendTooltip(GameTooltip)
 end
 
 function GameTooltip.SetCraftSpell(self, slot)
+    insideHook = true
     original_SetCraftSpell(self, slot)
     local _, _, id = string.find(GetCraftItemLink(slot) or "", "item:(%d+)")
     GameTooltip.itemID = id
+    insideHook = false
     ExtendTooltip(GameTooltip)
 end
 
 function GameTooltip.SetTradeSkillItem(self, skillIndex, reagentIndex)
+    insideHook = true
     original_SetTradeSkillItem(self, skillIndex, reagentIndex)
     if reagentIndex then
         local _, _, id = string.find(GetTradeSkillReagentItemLink(skillIndex, reagentIndex) or "", "item:(%d+)")
@@ -245,38 +268,47 @@ function GameTooltip.SetTradeSkillItem(self, skillIndex, reagentIndex)
         local _, _, id = string.find(GetTradeSkillItemLink(skillIndex) or "", "item:(%d+)")
         GameTooltip.itemID = id
     end
+    insideHook = false
     ExtendTooltip(GameTooltip)
 end
 
 function GameTooltip.SetAuctionItem(self, atype, index)
+    insideHook = true
     original_SetAuctionItem(self, atype, index)
     local itemName = GetAuctionItemInfo(atype, index)
     if itemName then
         GameTooltip.itemID = GetItemIDByName(itemName)
     end
+    insideHook = false
     ExtendTooltip(GameTooltip)
 end
 
 function GameTooltip.SetAuctionSellItem(self)
+    insideHook = true
     original_SetAuctionSellItem(self)
     local itemName = GetAuctionSellItemInfo()
     if itemName then
         GameTooltip.itemID = GetItemIDByName(itemName)
     end
+    insideHook = false
     ExtendTooltip(GameTooltip)
 end
 
 function GameTooltip.SetTradePlayerItem(self, index)
+    insideHook = true
     original_SetTradePlayerItem(self, index)
     local _, _, id = string.find(GetTradePlayerItemLink(index) or "", "item:(%d+)")
     GameTooltip.itemID = id
+    insideHook = false
     ExtendTooltip(GameTooltip)
 end
 
 function GameTooltip.SetTradeTargetItem(self, index)
+    insideHook = true
     original_SetTradeTargetItem(self, index)
     local _, _, id = string.find(GetTradeTargetItemLink(index) or "", "item:(%d+)")
     GameTooltip.itemID = id
+    insideHook = false
     ExtendTooltip(GameTooltip)
 end
 
