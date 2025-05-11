@@ -35,7 +35,17 @@ local WHITE = "|cffffffff"
 local CLOSE = FONT_COLOR_CODE_CLOSE
 
 local bankOpened = false
-local superwow = (SUPERWOW_VERSION and tonumber(SUPERWOW_VERSION) >= 1.3) or false
+local superwow = SUPERWOW_VERSION and tonumber(SUPERWOW_VERSION) >= 1.3
+
+local tooltipMoney = 0
+local original_SetTooltipMoney = SetTooltipMoney
+function SetTooltipMoney(frame, money)
+    if frame ~= GameTooltip then
+        return original_SetTooltipMoney(frame, money)
+    else
+        tooltipMoney = money or 0
+    end
+end
 
 local function ExtendTooltip(tooltip)
     if tooltip:GetAnchorType() == "ANCHOR_CURSOR" or not tooltip.itemID or not FULLSACK_DATA then
@@ -45,26 +55,8 @@ local function ExtendTooltip(tooltip)
     if id then
         local totalCount = 0
         local separatorAdded = false
-        local numLines = tooltip:NumLines()
-        for char in pairs(FULLSACK_DATA) do
-            local _, _, charName, charClass, charRealm = strfind(char, "(.+);(.+);(.+)")
-            if charRealm ~= realm then
-                -- continue
-            else
-                for pos in pairs(FULLSACK_DATA[char]) do
-                    local count = FULLSACK_DATA[char][pos][id]
-                    if count then
-                        totalCount = totalCount + count
-                    end
-                end
-            end
-        end
-        if numLines == 1 and totalCount > 0 then
-            tooltip:AddLine(" ")
-            numLines = numLines + 1
-            separatorAdded = true
-        end
-        local lastLine = getglobal(tooltip:GetName().."TextLeft"..numLines)
+        local addedText = ""
+        local lastLine = getglobal(tooltip:GetName().."TextLeft"..tooltip:NumLines())
         if not lastLine then
             return
         end
@@ -79,36 +71,55 @@ local function ExtendTooltip(tooltip)
                     local posStr = pos
                     posStr = color..pos..CLOSE
                     if count then
-                        if not separatorAdded then
+                        if not separatorAdded and not strfind(lastLine:GetText() or "", "^ ") then
+                            tooltip:AddLine(" ")
+                            lastLine = getglobal(tooltip:GetName().."TextLeft"..tooltip:NumLines())
                             separatorAdded = true
-                            lastLine:SetText(lastLine:GetText().."\n\n"..color..charName..WHITE.." (" .. posStr ..WHITE.. ")".." - "..count..CLOSE)
-                        else
-                            lastLine:SetText(lastLine:GetText().."\n"..color..charName..WHITE.." (" .. posStr ..WHITE.. ")".." - "..count..CLOSE)
                         end
+                        totalCount = totalCount + count
+                        addedText = addedText.."\n"..color..charName..WHITE.." (" .. posStr ..WHITE.. ")".." - "..count..CLOSE
                     end
                 end
             end
         end
         if totalCount > 0 then
+            lastLine:SetText(lastLine:GetText()..addedText)
             lastLine:SetText(lastLine:GetText().."\n"..LIGHTYELLOW_FONT_COLOR_CODE.."Total - " .. totalCount..CLOSE)
         end
+    end
+    if tooltip == GameTooltip and tooltipMoney > 0 then
+        original_SetTooltipMoney(tooltip, tooltipMoney)
     end
     tooltip:Show()
 end
 
-local GetItemInfo = GetItemInfo
 local lastSearchName
 local lastSearchID
+local IDcache = {}
 local function GetItemIDByName(name)
+    if not name then return end
     if name ~= lastSearchName then
+        if IDcache[name] then
+            if IDcache[name] ~= 0 then
+                return IDcache[name]
+            else
+                return nil
+            end
+        end
+        local found = false
         for itemID = 1, 99999 do
             local itemName = GetItemInfo(itemID)
-            if (itemName and itemName == name) then
+            if itemName and itemName == name then
                 lastSearchID = itemID
+                IDcache[name] = itemID
+                found = true
                 break
             end
         end
         lastSearchName = name
+        if not found then
+            IDcache[name] = 0
+        end
     end
     return lastSearchID
 end
@@ -130,6 +141,19 @@ local original_SetAuctionSellItem   = GameTooltip.SetAuctionSellItem
 local original_SetTradePlayerItem   = GameTooltip.SetTradePlayerItem
 local original_SetTradeTargetItem   = GameTooltip.SetTradeTargetItem
 local original_SetItemRef           = SetItemRef
+
+if superwow then
+    local original_SetAction = GameTooltip.SetAction
+    function GameTooltip.SetAction(self, actionID)
+        local hasCooldown = original_SetAction(self, actionID)
+        local text, actionType, id = GetActionText(actionID)
+        if actionType == "ITEM" then
+            GameTooltip.itemID = id
+            ExtendTooltip(GameTooltip)
+        end
+        return hasCooldown
+    end
+end
 
 function GameTooltip.SetLootRollItem(self, id)
     original_SetLootRollItem(self, id)
@@ -265,12 +289,12 @@ function SetItemRef(link, text, button)
     end
 end
 
-local function tblwipe(tbl)
-    if not tbl or type(tbl) ~= "table" then
+local function wipe(table)
+    if type(table) ~= "table" then
         return
     end
-    for k in pairs(tbl) do
-        tbl[k] = nil
+    for k in pairs(table) do
+        table[k] = nil
     end
 end
 
@@ -279,17 +303,17 @@ local function UpdateBagsAndBank()
     if not FULLSACK_DATA[character][position] then
         FULLSACK_DATA[character][position] = {}
     end
-    tblwipe(FULLSACK_DATA[character][position])
+    wipe(FULLSACK_DATA[character][position])
     for bag = -1, 10 do
-        if (bag == 0) then
+        if bag == 0 then
             position = "bags"
-            tblwipe(FULLSACK_DATA[character][position])
+            wipe(FULLSACK_DATA[character][position])
         end
-        if (bag == 5) then
+        if bag == 5 then
             position = "bank"
         end
         local bagSize = GetContainerNumSlots(bag)
-        if (bagSize > 0) then
+        if bagSize > 0 then
             for slot = 1, bagSize do
                 local _, itemCount = GetContainerItemInfo(bag, slot)
                 local itemLink = GetContainerItemLink(bag, slot)
@@ -298,7 +322,7 @@ local function UpdateBagsAndBank()
                 if itemCount and itemCount < 0 then
                     itemCount = -itemCount
                 end
-                if (id and itemCount and itemCount > 0) then
+                if id and itemCount and itemCount > 0 then
                     local tmpCount = FULLSACK_DATA[character][position][id]
                     if not tmpCount then
                         FULLSACK_DATA[character][position][id] = itemCount
@@ -331,7 +355,7 @@ local function UpdateMailbox()
     if not FULLSACK_DATA[character].mailbox then
         FULLSACK_DATA[character].mailbox = {}
     end
-    tblwipe(FULLSACK_DATA[character].mailbox)
+    wipe(FULLSACK_DATA[character].mailbox)
     for i = 1, GetInboxNumItems() do
         local itemName, _, count = GetInboxItem(i)
         local id = GetItemIDByName(itemName)
@@ -351,7 +375,7 @@ local function UpdateGear()
     if not FULLSACK_DATA[character].equipped then
         FULLSACK_DATA[character].equipped = {}
     end
-    tblwipe(FULLSACK_DATA[character].equipped)
+    wipe(FULLSACK_DATA[character].equipped)
     for i = 1, 19 do
         local link = GetInventoryItemLink("player", i)
         local _, _, id = strfind(link or "", "item:(%d+)")
@@ -491,10 +515,10 @@ local function OnEvent()
             if not FULLSACK_DATA[character].bags then
                 FULLSACK_DATA[character].bags = {}
             end
-            tblwipe(FULLSACK_DATA[character].bags)
+            wipe(FULLSACK_DATA[character].bags)
             for bag = 0, 4 do
                 local bagSize = GetContainerNumSlots(bag)
-                if (bagSize > 0) then
+                if bagSize > 0 then
                     for slot = 1, bagSize do
                         local _, itemCount = GetContainerItemInfo(bag, slot)
                         local itemLink = GetContainerItemLink(bag, slot)
@@ -503,7 +527,7 @@ local function OnEvent()
                         if itemCount and itemCount < 0 then
                             itemCount = -itemCount
                         end
-                        if (id and itemCount and itemCount > 0) then
+                        if id and itemCount and itemCount > 0 then
                             local tmpCount = FULLSACK_DATA[character].bags[id]
                             if not tmpCount then
                                 FULLSACK_DATA[character].bags[id] = itemCount
@@ -562,8 +586,16 @@ FullSackTooltip:SetScript("OnShow", function()
     end
 end)
 
-ItemRefTooltip:SetScript("OnHide", function() ItemRefTooltip.itemID = nil end)
-FullSackTooltip:SetScript("OnHide", function() GameTooltip.itemID = nil end)
+local original_OnHide = ItemRefTooltip:GetScript("OnHide")
+ItemRefTooltip:SetScript("OnHide", function()
+    original_OnHide()
+    ItemRefTooltip.itemID = nil
+end)
+
+FullSackTooltip:SetScript("OnHide", function()
+    GameTooltip.itemID = nil
+    tooltipMoney = 0
+end)
 
 local HookAddonOrVariable = function(addon, func)
     local lurker = CreateFrame("Frame")
