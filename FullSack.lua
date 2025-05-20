@@ -461,7 +461,7 @@ local function MoneyOnEnter()
                     totalCount = totalCount + count
                     local _, _, charName, charClass = strfind(char, "(.+);(.+);")
                     local color = classColors[charClass]
-                    if GameTooltip:NumLines() < 28 then
+                    if GameTooltip:NumLines() < 28 and count > 0 then
                         GameTooltip:AddDoubleLine(color..charName..":", MoneyToStr(count), 0.65, 0.75, 0.85, 1, 1, 1)
                     end
                 end
