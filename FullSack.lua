@@ -283,8 +283,7 @@ end
 function GameTooltip.SetAuctionSellItem(self)
 	insideHook = true
 	original_SetAuctionSellItem(self)
-	local _, _, id = strfind(GetAuctionSellItemLink() or "", "item:(%d+)")
-	GameTooltip.itemID = tonumber(id)
+	GameTooltip.itemID = tonumber(GetItemIDByName(GetAuctionSellItemInfo()))
 	insideHook = false
 	ExtendTooltip(GameTooltip)
 end
