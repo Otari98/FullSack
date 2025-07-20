@@ -52,45 +52,55 @@ local function ExtendTooltip(tooltip)
 	if tooltip:GetAnchorType() == "ANCHOR_CURSOR" or not tooltip.itemID or not FULLSACK_DATA then
 		return
 	end
+
 	local id = tonumber(tooltip.itemID)
-	if id then
-		local totalCount = 0
-		local separatorAdded = false
-		local addedText = ""
-		local lastLine = _G[tooltip:GetName().."TextLeft"..tooltip:NumLines()]
-		if not lastLine then
-			return
-		end
-		for char in pairs(FULLSACK_DATA) do
-			local _, _, charName, charClass, charRealm = strfind(char, "(.+);(.+);(.+)")
-			local color = classColors[charClass]
-			if charRealm == realm then
-				for pos in pairs(FULLSACK_DATA[char]) do
-					local count = FULLSACK_DATA[char][pos][id]
-					local posStr = pos
-					posStr = color..pos..CLOSE
-					if count then
-						if not separatorAdded and not strfind(lastLine:GetText() or "", "^ ") then
-							tooltip:AddLine(" ")
-							lastLine = _G[tooltip:GetName().."TextLeft"..tooltip:NumLines()]
-							separatorAdded = true
-						end
-						totalCount = totalCount + count
-						addedText = addedText.."\n"..color..charName..WHITE.." (" .. posStr ..WHITE.. ")".." - "..count..CLOSE
+	if not id then return end
+
+	local totalCount = 0
+	local separatorAdded = false
+	local lastLine = _G[tooltip:GetName().."TextLeft"..tooltip:NumLines()]
+	if not lastLine then return end
+
+	for char in pairs(FULLSACK_DATA) do
+		local _, _, charName, charClass, charRealm = strfind(char, "(.+);(.+);(.+)")
+		local color = classColors[charClass]
+
+		if charRealm == realm then
+			for pos in pairs(FULLSACK_DATA[char]) do
+				local count = FULLSACK_DATA[char][pos][id]
+				if count then
+					if not separatorAdded and not strfind(lastLine:GetText() or "", "^ ") then
+						tooltip:AddLine(" ")
+						separatorAdded = true
 					end
+
+					local posStr = color .. pos .. CLOSE
+					totalCount = totalCount + count
+
+					tooltip:AddDoubleLine(
+						color .. charName .. WHITE .. " (" .. posStr .. WHITE .. ")",
+						tostring(count)
+					)
 				end
 			end
 		end
-		if totalCount > 0 then
-			lastLine:SetText(lastLine:GetText()..addedText)
-			lastLine:SetText(lastLine:GetText().."\n"..LIGHTYELLOW_FONT_COLOR_CODE.."Total - " .. totalCount..CLOSE)
-		end
 	end
+
+	if totalCount > 0 then
+		tooltip:AddDoubleLine(
+			LIGHTYELLOW_FONT_COLOR_CODE .. "Total" .. CLOSE,
+			LIGHTYELLOW_FONT_COLOR_CODE .. tostring(totalCount) .. CLOSE
+		)
+	end
+
+
 	if tooltip == GameTooltip and tooltipMoney > 0 then
 		original_SetTooltipMoney(tooltip, tooltipMoney)
 	end
+
 	tooltip:Show()
 end
+
 
 local lastSearchName
 local lastSearchID
