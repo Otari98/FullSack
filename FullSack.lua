@@ -29,7 +29,7 @@ classColors["HUNTER"]  = "|cffabd473"
 classColors["SHAMAN"]  = "|cff0070de"
 
 local GOLD = "|cffffd100"
-local SILVER = "|cffe6e6e6"
+local SILVER = "|cffb0b0b0"
 local COPPER = "|cffc8602c"
 local BLUE = "|cff0070de"
 local WHITE = "|cffffffff"
@@ -39,7 +39,9 @@ local bankOpened = false
 local superwow = SUPERWOW_VERSION and tonumber(SUPERWOW_VERSION) >= 1.3
 local insideHook = false
 local tooltipMoney = 0
+
 local original_SetTooltipMoney = SetTooltipMoney
+
 function SetTooltipMoney(frame, money)
 	if not insideHook then
 		return original_SetTooltipMoney(frame, money)
@@ -92,35 +94,20 @@ local function ExtendTooltip(tooltip)
 	tooltip:Show()
 end
 
-local lastSearchName
-local lastSearchID
 local IDcache = {}
 local function GetItemIDByName(name)
-	if not name then return end
-	if name ~= lastSearchName then
-		if IDcache[name] then
-			if IDcache[name] ~= 0 then
-				return IDcache[name]
-			else
-				return nil
-			end
-		end
-		local found = false
-		for itemID = 1, 99999 do
-			local itemName = GetItemInfo(itemID)
-			if itemName and itemName == name then
-				lastSearchID = itemID
-				IDcache[name] = itemID
-				found = true
-				break
-			end
-		end
-		lastSearchName = name
-		if not found then
-			IDcache[name] = 0
+	if not name then return nil end
+	if IDcache[name] then
+		return IDcache[name] ~= 0 and IDcache[name] or nil
+	end
+	for itemID = 1, 99999 do
+		if GetItemInfo(itemID) == name then
+			IDcache[name] = itemID
+			return itemID
 		end
 	end
-	return lastSearchID
+	IDcache[name] = 0
+	return nil
 end
 
 local original_SetLootRollItem = GameTooltip.SetLootRollItem
@@ -141,6 +128,12 @@ local original_SetTradePlayerItem = GameTooltip.SetTradePlayerItem
 local original_SetTradeTargetItem = GameTooltip.SetTradeTargetItem
 local original_SetItemRef = SetItemRef
 
+local function IDFromLink(link)
+	if not link then return nil end
+	local _, _, id = strfind(link, "item:(%d+)")
+	return tonumber(id)
+end
+
 if superwow then
 	local original_SetAction = GameTooltip.SetAction
 	function GameTooltip.SetAction(self, actionID)
@@ -157,8 +150,7 @@ end
 function GameTooltip.SetLootRollItem(self, id)
 	insideHook = true
 	original_SetLootRollItem(self, id)
-	local _, _, itemID = string.find(GetLootRollItemLink(id) or "", "item:(%d+)")
-	GameTooltip.itemID = itemID
+	GameTooltip.itemID = IDFromLink(GetLootRollItemLink(id))
 	insideHook = false
 	ExtendTooltip(GameTooltip)
 end
@@ -166,8 +158,7 @@ end
 function GameTooltip.SetLootItem(self, slot)
 	insideHook = true
 	original_SetLootItem(self, slot)
-	local _, _, itemID = string.find(GetLootSlotLink(slot) or "", "item:(%d+)")
-	GameTooltip.itemID = itemID
+	GameTooltip.itemID = IDFromLink(GetLootSlotLink(slot))
 	insideHook = false
 	ExtendTooltip(GameTooltip)
 end
@@ -175,8 +166,7 @@ end
 function GameTooltip.SetMerchantItem(self, merchantIndex)
 	insideHook = true
 	original_SetMerchantItem(self, merchantIndex)
-	local _, _, itemID = string.find(GetMerchantItemLink(merchantIndex) or "", "item:(%d+)")
-	GameTooltip.itemID = itemID
+	GameTooltip.itemID = IDFromLink(GetMerchantItemLink(merchantIndex))
 	insideHook = false
 	ExtendTooltip(GameTooltip)
 end
@@ -184,8 +174,7 @@ end
 function GameTooltip.SetQuestLogItem(self, itemType, index)
 	insideHook = true
 	original_SetQuestLogItem(self, itemType, index)
-	local _, _, itemID = string.find(GetQuestLogItemLink(itemType, index) or "", "item:(%d+)")
-	GameTooltip.itemID = itemID
+	GameTooltip.itemID = IDFromLink(GetQuestLogItemLink(itemType, index))
 	insideHook = false
 	ExtendTooltip(GameTooltip)
 end
@@ -193,8 +182,7 @@ end
 function GameTooltip.SetQuestItem(self, itemType, index)
 	insideHook = true
 	original_SetQuestItem(self, itemType, index)
-	local _, _, itemID = string.find(GetQuestItemLink(itemType, index) or "", "item:(%d+)")
-	GameTooltip.itemID = itemID
+	GameTooltip.itemID = IDFromLink(GetQuestItemLink(itemType, index))
 	insideHook = false
 	ExtendTooltip(GameTooltip)
 end
@@ -202,8 +190,7 @@ end
 function GameTooltip.SetHyperlink(self, arg1)
 	insideHook = true
 	original_SetHyperlink(self, arg1)
-	local _, _, id = string.find(arg1 or "", "item:(%d+)")
-	GameTooltip.itemID = tonumber(id)
+	GameTooltip.itemID = IDFromLink(arg1)
 	insideHook = false
 	ExtendTooltip(GameTooltip)
 end
@@ -211,8 +198,7 @@ end
 function GameTooltip.SetBagItem(self, container, slot)
 	insideHook = true
 	local hasCooldown, repairCost = original_SetBagItem(self, container, slot)
-	local _, _, id = string.find(GetContainerItemLink(container, slot) or "", "item:(%d+)")
-	GameTooltip.itemID = tonumber(id)
+	GameTooltip.itemID = IDFromLink(GetContainerItemLink(container, slot))
 	insideHook = false
 	ExtendTooltip(GameTooltip)
 	return hasCooldown, repairCost
@@ -221,10 +207,7 @@ end
 function GameTooltip.SetInboxItem(self, mailID, attachmentIndex)
 	insideHook = true
 	original_SetInboxItem(self, mailID, attachmentIndex)
-	local itemName = GetInboxItem(mailID)
-	if itemName then
-		GameTooltip.itemID = GetItemIDByName(itemName)
-	end
+	GameTooltip.itemID = GetItemIDByName(GetInboxItem(mailID))
 	insideHook = false
 	ExtendTooltip(GameTooltip)
 end
@@ -232,8 +215,7 @@ end
 function GameTooltip.SetInventoryItem(self, unit, slot)
 	insideHook = true
 	local hasItem, hasCooldown, repairCost = original_SetInventoryItem(self, unit, slot)
-	local _, _, id = string.find(GetInventoryItemLink(unit, slot) or "", "item:(%d+)")
-	GameTooltip.itemID = tonumber(id)
+	GameTooltip.itemID = IDFromLink(GetInventoryItemLink(unit, slot))
 	insideHook = false
 	ExtendTooltip(GameTooltip)
 	return hasItem, hasCooldown, repairCost
@@ -242,8 +224,7 @@ end
 function GameTooltip.SetCraftItem(self, skill, slot)
 	insideHook = true
 	original_SetCraftItem(self, skill, slot)
-	local _, _, id = string.find(GetCraftReagentItemLink(skill, slot) or "", "item:(%d+)")
-	GameTooltip.itemID = tonumber(id)
+	GameTooltip.itemID = IDFromLink(GetCraftReagentItemLink(skill, slot))
 	insideHook = false
 	ExtendTooltip(GameTooltip)
 end
@@ -251,8 +232,7 @@ end
 function GameTooltip.SetCraftSpell(self, slot)
 	insideHook = true
 	original_SetCraftSpell(self, slot)
-	local _, _, id = string.find(GetCraftItemLink(slot) or "", "item:(%d+)")
-	GameTooltip.itemID = tonumber(id)
+	GameTooltip.itemID = IDFromLink(GetCraftItemLink(slot))
 	insideHook = false
 	ExtendTooltip(GameTooltip)
 end
@@ -261,11 +241,9 @@ function GameTooltip.SetTradeSkillItem(self, skillIndex, reagentIndex)
 	insideHook = true
 	original_SetTradeSkillItem(self, skillIndex, reagentIndex)
 	if reagentIndex then
-		local _, _, id = string.find(GetTradeSkillReagentItemLink(skillIndex, reagentIndex) or "", "item:(%d+)")
-		GameTooltip.itemID = tonumber(id)
+		GameTooltip.itemID = IDFromLink(GetTradeSkillReagentItemLink(skillIndex, reagentIndex))
 	else
-		local _, _, id = string.find(GetTradeSkillItemLink(skillIndex) or "", "item:(%d+)")
-		GameTooltip.itemID = tonumber(id)
+		GameTooltip.itemID = IDFromLink(GetTradeSkillItemLink(skillIndex))
 	end
 	insideHook = false
 	ExtendTooltip(GameTooltip)
@@ -274,8 +252,7 @@ end
 function GameTooltip.SetAuctionItem(self, atype, index)
 	insideHook = true
 	original_SetAuctionItem(self, atype, index)
-	local _, _, id = strfind(GetAuctionItemLink(atype, index) or "", "item:(%d+)")
-	GameTooltip.itemID = tonumber(id)
+	GameTooltip.itemID = IDFromLink(GetAuctionItemLink(atype, index))
 	insideHook = false
 	ExtendTooltip(GameTooltip)
 end
@@ -283,7 +260,7 @@ end
 function GameTooltip.SetAuctionSellItem(self)
 	insideHook = true
 	original_SetAuctionSellItem(self)
-	GameTooltip.itemID = tonumber(GetItemIDByName(GetAuctionSellItemInfo()))
+	GameTooltip.itemID = GetItemIDByName(GetAuctionSellItemInfo())
 	insideHook = false
 	ExtendTooltip(GameTooltip)
 end
@@ -291,8 +268,7 @@ end
 function GameTooltip.SetTradePlayerItem(self, index)
 	insideHook = true
 	original_SetTradePlayerItem(self, index)
-	local _, _, id = string.find(GetTradePlayerItemLink(index) or "", "item:(%d+)")
-	GameTooltip.itemID = tonumber(id)
+	GameTooltip.itemID = IDFromLink(GetTradePlayerItemLink(index))
 	insideHook = false
 	ExtendTooltip(GameTooltip)
 end
@@ -300,17 +276,15 @@ end
 function GameTooltip.SetTradeTargetItem(self, index)
 	insideHook = true
 	original_SetTradeTargetItem(self, index)
-	local _, _, id = string.find(GetTradeTargetItemLink(index) or "", "item:(%d+)")
-	GameTooltip.itemID = tonumber(id)
+	GameTooltip.itemID = IDFromLink(GetTradeTargetItemLink(index))
 	insideHook = false
 	ExtendTooltip(GameTooltip)
 end
 
 function SetItemRef(link, text, button)
-	local item, _, id = string.find(link, "item:(%d+)")
-	ItemRefTooltip.itemID = id
+	ItemRefTooltip.itemID = IDFromLink(link)
 	original_SetItemRef(link, text, button)
-	if not IsShiftKeyDown() and not IsControlKeyDown() and item then
+	if not IsShiftKeyDown() and not IsControlKeyDown() and ItemRefTooltip.itemID then
 		ExtendTooltip(ItemRefTooltip)
 	end
 end
@@ -326,9 +300,7 @@ end
 
 local function UpdateBagsAndBank()
 	local position = "bank"
-	if not FULLSACK_DATA[character][position] then
-		FULLSACK_DATA[character][position] = {}
-	end
+	FULLSACK_DATA[character][position] = FULLSACK_DATA[character][position] or {}
 	wipe(FULLSACK_DATA[character][position])
 	for bag = -1, 10 do
 		if bag == 0 then
@@ -342,9 +314,7 @@ local function UpdateBagsAndBank()
 		if bagSize > 0 then
 			for slot = 1, bagSize do
 				local _, itemCount = GetContainerItemInfo(bag, slot)
-				local itemLink = GetContainerItemLink(bag, slot)
-				local _, _, id = strfind(itemLink or "", "item:(%d+)")
-				id = tonumber(id)
+				local id = IDFromLink(GetContainerItemLink(bag, slot))
 				if itemCount and itemCount < 0 then
 					itemCount = -itemCount
 				end
@@ -378,14 +348,11 @@ local function ScheduleFunctionLaunch(func, delay)
 end
 
 local function UpdateMailbox()
-	if not FULLSACK_DATA[character].mailbox then
-		FULLSACK_DATA[character].mailbox = {}
-	end
+	FULLSACK_DATA[character].mailbox = FULLSACK_DATA[character].mailbox or {}
 	wipe(FULLSACK_DATA[character].mailbox)
 	for i = 1, GetInboxNumItems() do
 		local itemName, _, count = GetInboxItem(i)
 		local id = GetItemIDByName(itemName)
-		id = tonumber(id)
 		if id then
 			local tmpCount = FULLSACK_DATA[character].mailbox[id]
 			if not tmpCount then
@@ -398,14 +365,10 @@ local function UpdateMailbox()
 end
 
 local function UpdateGear()
-	if not FULLSACK_DATA[character].equipped then
-		FULLSACK_DATA[character].equipped = {}
-	end
+	FULLSACK_DATA[character].equipped = FULLSACK_DATA[character].equipped or {}
 	wipe(FULLSACK_DATA[character].equipped)
 	for i = 1, 19 do
-		local link = GetInventoryItemLink("player", i)
-		local _, _, id = strfind(link or "", "item:(%d+)")
-		id = tonumber(id)
+		local id = IDFromLink(GetInventoryItemLink("player", i))
 		if id then
 			local tmpCount = FULLSACK_DATA[character].equipped[id]
 			if not tmpCount then
@@ -444,29 +407,30 @@ local function MoneyToStr(money)
 end
 
 local function MoneyOnEnter()
-	if FULLSACK_DATA then
-		GameTooltip:SetOwner(this, "ANCHOR_RIGHT", -12, 0)
-		GameTooltip:SetText("Money")
-		local totalCount = 0
-		for char, data in pairs(FULLSACK_DATA) do
-			for pos in pairs(data) do
-				if pos == "money" then
-					local count = data[pos][1]
-					totalCount = totalCount + count
-					local _, _, charName, charClass = strfind(char, "(.+);(.+);")
-					local color = classColors[charClass]
-					if GameTooltip:NumLines() < 28 and count > 0 then
-						GameTooltip:AddDoubleLine(color..charName..":", MoneyToStr(count), 0.65, 0.75, 0.85, 1, 1, 1)
-					end
+	if not FULLSACK_DATA then
+		return
+	end
+	GameTooltip:SetOwner(this, "ANCHOR_RIGHT", -12, 0)
+	GameTooltip:SetText("Money")
+	local totalCount = 0
+	for char, data in pairs(FULLSACK_DATA) do
+		for pos in pairs(data) do
+			if pos == "money" then
+				local count = data[pos][1]
+				totalCount = totalCount + count
+				local _, _, charName, charClass = strfind(char, "(.+);(.+);")
+				local color = classColors[charClass]
+				if GameTooltip:NumLines() < 28 and count > 0 then
+					GameTooltip:AddDoubleLine(color..charName..":", MoneyToStr(count), 0.65, 0.75, 0.85, 1, 1, 1)
 				end
 			end
 		end
-		if totalCount > 0 then
-			GameTooltip:AddLine(" ")
-			GameTooltip:AddDoubleLine("Total:", MoneyToStr(totalCount), 1, 0.8, 0, 1, 1, 1)
-		end
-		GameTooltip:Show()
 	end
+	if totalCount > 0 then
+		GameTooltip:AddLine(" ")
+		GameTooltip:AddDoubleLine("Total:", MoneyToStr(totalCount), 1, 0.8, 0, 1, 1, 1)
+	end
+	GameTooltip:Show()
 end
 
 local function MoneyOnLeave()
@@ -492,15 +456,15 @@ end
 
 local function OnEvent()
 	if event == "PLAYER_LOGIN" then
-		if not FULLSACK_DATA then
-			FULLSACK_DATA = {}
-		end
-		if not FULLSACK_DATA[character] then
-			FULLSACK_DATA[character] = {}
-		end
+		character = UnitName("player")
+		_, class = UnitClass("player")
+		realm = GetRealmName()
+		character = character..";"..class..";"..realm
+		FULLSACK_DATA = FULLSACK_DATA or {}
 		if superwow then
 			FULLSACK_DATA = assert(loadstring(ImportFile("FullSack") or ""))() or FULLSACK_DATA
 		end
+		FULLSACK_DATA[character] = FULLSACK_DATA[character] or {}
 		FULLSACK_DATA[character].money = { GetMoney() }
 		ScheduleFunctionLaunch(HookMoneyButtons, 2)
 
@@ -508,40 +472,38 @@ local function OnEvent()
 		if not superwow then
 			return
 		end
-		local chunk = 'local tbl = {\n'
+		local chunk = 'return {\n'
 		for char in pairs(FULLSACK_DATA) do
-			chunk = chunk..'	["'..char..'"] = {\n'
+			chunk = chunk..'["'..char..'"]={\n'
 			for pos in pairs(FULLSACK_DATA[char]) do
-				chunk = chunk..'		["'..pos..'"] = {\n'
+				chunk = chunk..'\t["'..pos..'"]={'
 				for id, count in pairs(FULLSACK_DATA[char][pos]) do
-					chunk = chunk..'			['..id..'] = '..count..',\n'
+					if pos == "money" then
+						chunk = chunk..count..','
+					else
+						chunk = chunk..'['..id..']='..count..','
+					end
 				end
-				chunk = chunk..'		},\n'
+				chunk = gsub(chunk, ',$', '')..'},\n'
 			end
-			chunk = chunk..'	},\n'
+			chunk = chunk..'},\n'
 		end
-		chunk = chunk..'}\nreturn tbl'
+		chunk = chunk..'}'
 		ExportFile("FullSack", chunk)
 
 	elseif event == "BAG_UPDATE" then
 		if bankOpened then
 			UpdateBagsAndBank()
 		else
-			if not FULLSACK_DATA[character] then
-				FULLSACK_DATA[character] = {}
-			end
-			if not FULLSACK_DATA[character].bags then
-				FULLSACK_DATA[character].bags = {}
-			end
+			FULLSACK_DATA[character] = FULLSACK_DATA[character] or {}
+			FULLSACK_DATA[character].bags = FULLSACK_DATA[character].bags or {}
 			wipe(FULLSACK_DATA[character].bags)
 			for bag = 0, 4 do
 				local bagSize = GetContainerNumSlots(bag)
 				if bagSize > 0 then
 					for slot = 1, bagSize do
 						local _, itemCount = GetContainerItemInfo(bag, slot)
-						local itemLink = GetContainerItemLink(bag, slot)
-						local _, _, id = strfind(itemLink or "", "item:(%d+)")
-						id = tonumber(id)
+						local id = IDFromLink(GetContainerItemLink(bag, slot))
 						if itemCount and itemCount < 0 then
 							itemCount = -itemCount
 						end
@@ -575,33 +537,30 @@ local function OnEvent()
 		ScheduleFunctionLaunch(UpdateMailbox)
 
 	elseif event == "PLAYER_MONEY" then
-		if not FULLSACK_DATA then
-			FULLSACK_DATA = {}
-		end
-		if not FULLSACK_DATA[character] then
-			FULLSACK_DATA[character] = {}
-		end
+		FULLSACK_DATA = FULLSACK_DATA or {}
+		FULLSACK_DATA[character] = FULLSACK_DATA[character] or {}
 		FULLSACK_DATA[character].money = { GetMoney() }
 	end
 end
 
 FullSack:SetScript("OnEvent", OnEvent)
-FullSack:SetScript("OnUpdate", function()
-	ScheduleFunctionLaunch()
-end)
+FullSack:SetScript("OnUpdate", ScheduleFunctionLaunch)
 
 local FullSackTooltip = CreateFrame("Frame", "FullSackTooltipFrame", GameTooltip)
 FullSackTooltip:SetScript("OnShow", function()
-	if aux_frame and aux_frame:IsVisible() then
-		if GetMouseFocus():GetParent() then
-			if GetMouseFocus():GetParent().row then
-				if GetMouseFocus():GetParent().row.record.item_id then
-					GameTooltip.itemID = GetMouseFocus():GetParent().row.record.item_id
-					ExtendTooltip(GameTooltip)
-				end
-			end
-		end
+	if not (aux_frame and aux_frame:IsShown()) then
+		return
 	end
+	local focus = GetMouseFocus()
+	if not focus then
+		return
+	end
+	local parent = focus:GetParent()
+	if not (parent and parent.row and parent.row.record) then
+		return
+	end
+	GameTooltip.itemID = tonumber(parent.row.record.item_id)
+	ExtendTooltip(GameTooltip)
 end)
 
 local original_OnHide = ItemRefTooltip:GetScript("OnHide")
@@ -633,21 +592,27 @@ HookAddonOrVariable("AtlasLoot", function()
 	local atlas = CreateFrame("Frame", nil, AtlasLootTooltip)
 	local atlas2 = CreateFrame("Frame", nil, AtlasLootTooltip2)
 	atlas:SetScript("OnShow", function()
-		if GetMouseFocus().dressingroomID and GetMouseFocus().dressingroomID ~= 0 and
-				strsub(GetMouseFocus().itemID or "", 1, 1) ~= "s" and strsub(GetMouseFocus().itemID or "", 1, 1) ~= "e" then
-			AtlasLootTooltip.itemID = GetMouseFocus().dressingroomID
+		local focus = GetMouseFocus()
+		if not focus then return end
+		if focus.dressingroomID and focus.dressingroomID ~= 0 and strsub(focus.itemID or "", 1, 1) ~= "s" and strsub(focus.itemID or "", 1, 1) ~= "e" then
+			AtlasLootTooltip.itemID = tonumber(focus.dressingroomID)
+			ExtendTooltip(AtlasLootTooltip)
 		end
-		ExtendTooltip(AtlasLootTooltip)
 	end)
 	atlas2:SetScript("OnShow", function()
-		if GetMouseFocus().dressingroomID and GetMouseFocus().dressingroomID ~= 0 and
-				strsub(GetMouseFocus().itemID or "", 1, 1) ~= "s" and strsub(GetMouseFocus().itemID or "", 1, 1) ~= "e" then
-			AtlasLootTooltip2.itemID = GetMouseFocus().dressingroomID
+		local focus = GetMouseFocus()
+		if not focus then return end
+		if focus.dressingroomID and focus.dressingroomID ~= 0 and strsub(focus.itemID or "", 1, 1) ~= "s" and strsub(focus.itemID or "", 1, 1) ~= "e" then
+			AtlasLootTooltip2.itemID = tonumber(focus.dressingroomID)
+			ExtendTooltip(AtlasLootTooltip2)
 		end
-		ExtendTooltip(AtlasLootTooltip2)
 	end)
-	atlas:SetScript("OnHide", function() AtlasLootTooltip.itemID = nil end)
-	atlas2:SetScript("OnHide", function() AtlasLootTooltip2.itemID = nil end)
+	atlas:SetScript("OnHide", function()
+		AtlasLootTooltip.itemID = nil
+	end)
+	atlas2:SetScript("OnHide", function()
+		AtlasLootTooltip2.itemID = nil
+	end)
 end)
 
 SLASH_FULLSACK1 = "/fullsack"
