@@ -299,6 +299,7 @@ local function wipe(table)
 end
 
 local function UpdateBagsAndBank()
+	if not bankOpened then return end
 	local position = "bank"
 	FULLSACK_DATA[character][position] = FULLSACK_DATA[character][position] or {}
 	wipe(FULLSACK_DATA[character][position])
