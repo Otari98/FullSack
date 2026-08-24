@@ -207,7 +207,11 @@ end
 function GameTooltip.SetInboxItem(self, mailID, attachmentIndex)
 	insideHook = true
 	original_SetInboxItem(self, mailID, attachmentIndex)
-	GameTooltip.itemID = GetItemIDByName(GetInboxItem(mailID))
+	if GetInboxItemLink then
+		GameTooltip.itemID = IDFromLink(GetInboxItemLink(mailID, attachmentIndex))
+	else
+		GameTooltip.itemID = GetItemIDByName(GetInboxItem(mailID, attachmentIndex))
+	end
 	insideHook = false
 	ExtendTooltip(GameTooltip)
 end
@@ -290,12 +294,8 @@ function SetItemRef(link, text, button)
 end
 
 local function wipe(table)
-	if type(table) ~= "table" then
-		return
-	end
-	for k in pairs(table) do
-		table[k] = nil
-	end
+	if type(table) ~= "table" then return end
+	for k in pairs(table) do table[k] = nil end
 end
 
 local function UpdateBagsAndBank()
@@ -353,7 +353,12 @@ local function UpdateMailbox()
 	wipe(FULLSACK_DATA[character].mailbox)
 	for i = 1, GetInboxNumItems() do
 		local itemName, _, count = GetInboxItem(i)
-		local id = GetItemIDByName(itemName)
+		local id
+		if GetInboxItemLink then
+			id = IDFromLink(GetInboxItemLink(i))
+		else
+			id = GetItemIDByName(itemName)
+		end
 		if id then
 			local tmpCount = FULLSACK_DATA[character].mailbox[id]
 			if not tmpCount then
@@ -382,6 +387,9 @@ local function UpdateGear()
 end
 
 local function MoneyToStr(money)
+	if GetCoinTextureString then
+		return GetCoinTextureString(money)
+	end
 	local gold = floor(money / (COPPER_PER_SILVER * SILVER_PER_GOLD))
 	local silver = floor((money - (gold * COPPER_PER_SILVER * SILVER_PER_GOLD)) / COPPER_PER_SILVER)
 	local copper = mod(money, COPPER_PER_SILVER)
@@ -545,7 +553,7 @@ local function OnEvent()
 end
 
 FullSack:SetScript("OnEvent", OnEvent)
-FullSack:SetScript("OnUpdate", ScheduleFunctionLaunch)
+FullSack:SetScript("OnUpdate", function() ScheduleFunctionLaunch() end)
 
 local FullSackTooltip = CreateFrame("Frame", "FullSackTooltipFrame", GameTooltip)
 FullSackTooltip:SetScript("OnShow", function()
