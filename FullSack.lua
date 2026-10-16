@@ -332,13 +332,14 @@ end
 
 local function UpdateBagsAndBank()
 	if not bankOpened then return end
+	if not FULLSACK_DATA[character].bank then FULLSACK_DATA[character].bank = {} end
+	if not FULLSACK_DATA[character].bags then FULLSACK_DATA[character].bags = {} end
+	wipe(FULLSACK_DATA[character].bank)
+	wipe(FULLSACK_DATA[character].bags)
 	local position = "bank"
-	FULLSACK_DATA[character][position] = FULLSACK_DATA[character][position] or {}
-	wipe(FULLSACK_DATA[character][position])
 	for bag = -1, 10 do
 		if bag == 0 then
 			position = "bags"
-			wipe(FULLSACK_DATA[character][position])
 		end
 		if bag == 5 then
 			position = "bank"
@@ -381,7 +382,7 @@ local function ScheduleFunctionLaunch(func, delay)
 end
 
 local function UpdateMailbox()
-	FULLSACK_DATA[character].mailbox = FULLSACK_DATA[character].mailbox or {}
+	if not FULLSACK_DATA[character].mailbox then FULLSACK_DATA[character].mailbox = {} end
 	wipe(FULLSACK_DATA[character].mailbox)
 	for i = 1, GetInboxNumItems() do
 		local itemName, _, count = GetInboxItem(i)
@@ -403,7 +404,7 @@ local function UpdateMailbox()
 end
 
 local function UpdateGear()
-	FULLSACK_DATA[character].equipped = FULLSACK_DATA[character].equipped or {}
+	if not FULLSACK_DATA[character].equipped then FULLSACK_DATA[character].equipped = {} end
 	wipe(FULLSACK_DATA[character].equipped)
 	for i = 1, 19 do
 		local id = IDFromLink(GetInventoryItemLink("player", i))
@@ -501,11 +502,11 @@ local function OnEvent()
 		_, class = UnitClass("player")
 		realm = GetRealmName()
 		character = character..";"..class..";"..realm
-		FULLSACK_DATA = FULLSACK_DATA or {}
+		if not FULLSACK_DATA then FULLSACK_DATA = {} end
 		if superwow then
 			FULLSACK_DATA = assert(loadstring(ImportFile("FullSack") or ""))() or FULLSACK_DATA
 		end
-		FULLSACK_DATA[character] = FULLSACK_DATA[character] or {}
+		if not FULLSACK_DATA[character] then FULLSACK_DATA[character] = {} end
 		FULLSACK_DATA[character].money = { GetMoney() }
 		ScheduleFunctionLaunch(HookMoneyButtons, 2)
 
@@ -536,8 +537,8 @@ local function OnEvent()
 		if bankOpened then
 			UpdateBagsAndBank()
 		else
-			FULLSACK_DATA[character] = FULLSACK_DATA[character] or {}
-			FULLSACK_DATA[character].bags = FULLSACK_DATA[character].bags or {}
+			if not FULLSACK_DATA[character] then FULLSACK_DATA[character] = {} end
+			if not FULLSACK_DATA[character].bags then FULLSACK_DATA[character].bags = {} end
 			wipe(FULLSACK_DATA[character].bags)
 			for bag = 0, 4 do
 				local bagSize = GetContainerNumSlots(bag)
@@ -578,9 +579,10 @@ local function OnEvent()
 		ScheduleFunctionLaunch(UpdateMailbox)
 
 	elseif event == "PLAYER_MONEY" then
-		FULLSACK_DATA = FULLSACK_DATA or {}
-		FULLSACK_DATA[character] = FULLSACK_DATA[character] or {}
-		FULLSACK_DATA[character].money = { GetMoney() }
+		if not FULLSACK_DATA then FULLSACK_DATA = {} end
+		if not FULLSACK_DATA[character] then FULLSACK_DATA[character] = {} end
+		if not FULLSACK_DATA[character].money then FULLSACK_DATA[character].money = {} end
+		FULLSACK_DATA[character].money[1] = GetMoney()
 	end
 end
 
